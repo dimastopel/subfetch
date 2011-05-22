@@ -48,8 +48,8 @@
 
 //#include "config.h"  /* information about this build environment */
 
-#define NAME "Xmlrpc-c Test Client"
-#define VERSION "1.0"
+#define NAME "subfetch"
+#define VERSION "0.1"
 
 static void 
 dieIfFaultOccurred (xmlrpc_env * const envP) {
@@ -73,8 +73,8 @@ int
 main(int           const argc, 
      const char ** const argv) {
 
-    const char * const serverUrl = "http://localhost:8080/RPC2";
-    const char * const methodName = "example.divide";
+    const char * const serverUrl = "http://api.opensubtitles.org/xml-rpc";
+    const char * const methodName = "LogIn";
     unsigned int const argVersion = 1;
     struct ratio const data[] = {{1,2},{12,3},{10,3},{89,3000}};
     xmlrpc_env env;
@@ -88,52 +88,102 @@ main(int           const argc,
         exit(1);
     }
 
+    printf("Start!\n");
     xmlrpc_env_init(&env);
+    printf("Init successful\n");
 
     xmlrpc_client_init2(&env, XMLRPC_CLIENT_NO_FLAGS, NAME, VERSION, NULL, 0);
     dieIfFaultOccurred(&env);
+    printf("Init2 successful\n");
 
-    /* Build the 2nd method argument: the array of ratios */
-
-    ratioArrayP = xmlrpc_array_new(&env);
-    dieIfFaultOccurred(&env);
-
-    for (i = 0; i < 4; ++i) {
-        xmlrpc_value * dividendP;
-        xmlrpc_value * divisorP;
-        xmlrpc_value * ratioP;
-
-        dividendP = xmlrpc_double_new(&env, data[i].dividend);
-        dieIfFaultOccurred(&env);
-        divisorP  = xmlrpc_double_new(&env, data[i].divisor);
-        dieIfFaultOccurred(&env);
-
-        ratioP = xmlrpc_struct_new(&env);
-        dieIfFaultOccurred(&env);
-
-        xmlrpc_struct_set_value(&env, ratioP, "DIVIDEND", dividendP);
-        dieIfFaultOccurred(&env);
-        xmlrpc_struct_set_value(&env, ratioP, "DIVISOR",  divisorP);
-        dieIfFaultOccurred(&env);
-        
-        xmlrpc_array_append_item(&env, ratioArrayP, ratioP);
-        dieIfFaultOccurred(&env);
-
-        xmlrpc_DECREF(ratioP);
-        xmlrpc_DECREF(divisorP);
-        xmlrpc_DECREF(dividendP);
-    }        
-
+    xmlrpc_value* s1 = xmlrpc_string_new(&env, "");
+    xmlrpc_value* s2 = xmlrpc_string_new(&env, "");
+    xmlrpc_value* s3 = xmlrpc_string_new(&env, "eng");
+    xmlrpc_value* s4 = xmlrpc_string_new(&env, "oscar v2.13");
+    printf("Initialized variables\n");
+    
     /* Make the call */
 
-    resultP = xmlrpc_client_call(&env, serverUrl, methodName, "(iA)",
-                                 (xmlrpc_int32) argVersion, ratioArrayP);
+    printf("Making the call\n");
+    resultP = xmlrpc_client_call(&env, serverUrl, methodName, "(ssss)",
+                                 "","","eng","oscar v2.13");
     dieIfFaultOccurred(&env);
+    printf("after call\n");
     
+       
     /* Print out the quotients returned */
 
+    printf("the type is: %d", xmlrpc_value_type(resultP));
+    
+    
+    xmlrpc_value * token;
+    xmlrpc_value * status;
+    xmlrpc_value * seconds;
+
+    xmlrpc_struct_find_value(&env, resultP, "token", &token);
+    xmlrpc_struct_find_value(&env, resultP, "status", &status);
+    xmlrpc_struct_find_value(&env, resultP, "seconds", &seconds);
+
+    if (token) {
+        const char* token_val;
+        xmlrpc_read_string(&env, token, &token_val);
+        printf("token is %s\n", token_val);
+    } 
+    else
+    {
+        printf("There is no member named token\n");
+    }
+
+    if (status) {
+        const char* status_val;
+	size_t str_size;
+        xmlrpc_read_string_lp(&env, status, &str_size, &status_val);
+        printf("status [%d] is %s\n", str_size, status_val);
+    } 
+    else
+    {
+        printf("There is no member named status\n"); 
+    }
+    if (seconds) {
+        xmlrpc_double seconds_val;
+        xmlrpc_read_double(&env, seconds, &seconds_val);
+        printf("seconds is %f\n", seconds_val);
+        //xmlrpc_DECREF(&seconds_val);
+    } 
+    else
+    {
+        printf("There is no member named seconds\n");
+    }
+    
+    int size = xmlrpc_struct_size(&env, resultP);
+    printf("struct size is: [%d]\n",size);
+    int counter;
+    for (counter = 0; counter < size; counter++)
+    {
+	
+        xmlrpc_value * keyval;
+        xmlrpc_value * valval;
+	xmlrpc_struct_read_member(&env,
+                          resultP,
+                          counter,
+                          &keyval,
+                          &valval);
+
+        const char* string_val;
+        xmlrpc_read_string(&env, keyval, &string_val);
+        printf("key [%d] is %s\n", counter,string_val);
+	
+
+    }
+    
+	xmlrpc_DECREF(resultP);
+
+    
+    
+    /*
     quotientCt = xmlrpc_array_size(&env, resultP);
     dieIfFaultOccurred(&env);
+    printf("array size: %d", quotientCt);
 
     for (i = 0; i < quotientCt; ++i) {
         xmlrpc_value * quotientP;
@@ -151,7 +201,7 @@ main(int           const argc,
     }
 
     xmlrpc_DECREF(resultP);
-
+	*/
     xmlrpc_env_clean(&env);
     
     xmlrpc_client_cleanup();
